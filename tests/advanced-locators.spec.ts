@@ -1,149 +1,129 @@
+
 import { test, expect } from '@playwright/test';
 
+// Advanced locators: filter by text
 test('find specific product using filter', async ({ page }) => {
+  await page.goto('/inventory.html');
 
-    await page.goto('/inventory.html');
+  const product = page
+    .locator('.inventory_item')
+    .filter({ hasText: 'Sauce Labs Backpack' });
 
-    const product = page
-        .locator('.inventory_item')
-        .filter({
-            hasText: 'Sauce Labs Backpack'
-        });
-
-    await expect(product).toBeVisible();
-
+  await expect(product).toBeVisible();
 });
-//Find a button belonging to a specific product
 
+// Find a button belonging to a specific product
 test('add specific product using filter @smoke', async ({ page }) => {
+  await page.goto('/inventory.html');
 
-    await page.goto('/inventory.html');
+  const product = page
+    .locator('.inventory_item')
+    .filter({ hasText: 'Sauce Labs Backpack' });
 
-    const product = page
-        .locator('.inventory_item')
-        .filter({
-            hasText: 'Sauce Labs Backpack'
-        });
-
-    await product
-        .getByRole('button', { name: 'Add to cart' })
-        .click();
-
-    await expect(
-        page.locator('.shopping_cart_badge')
-    ).toHaveText('1');
-
-});
-
-//has — locate based on a child element
-
-const product = page.locator('.inventory_item').filter({
-
-    has: page.getByText(
-        'Sauce Labs Backpack',
-        { exact: true }
-    )
-
-});
-        await product
-            .getByRole('button', { name: 'Add to cart' })
-             .click();
-
-//Locator chaining
-
-
-//nth(), first() and last()
-const products = page.locator('.inventory_item');
-
-await products.first().click();
-
-await products.last().click();
-
-await products.nth(2).click();
-
-//Dynamic table strategy
- const row = page
-    .getByRole('row')
-    .filter({
-        hasText: 'Priya'
-    });
-
-await expect(row).toContainText('Active');
-
-await row
-    .getByRole('button', { name: 'Edit' })
+  await product
+    .getByRole('button', { name: 'Add to cart' })
     .click();
 
-    //iframe
-    test('handle iframe', async ({ page }) => {
-
-    await page.goto(
-        'https://the-internet.herokuapp.com/iframe'
-    );
-
-    const frame = page.frameLocator('#mce_0_ifr');
-
-    const editor = frame.locator('#tinymce');
-
-    await expect(editor).toBeVisible();
-
+  await expect(page.locator('.shopping_cart_badge')).toHaveText('1');
 });
 
-//interact inside iframe
-const frame = page.frameLocator('#mce_0_ifr');
+// Locate a product using a child element
+test('find product using has locator', async ({ page }) => {
+  await page.goto('/inventory.html');
 
-const editor = frame.locator('#tinymce');
+  const product = page.locator('.inventory_item').filter({
+    has: page.getByText('Sauce Labs Backpack', { exact: true }),
+  });
 
-await editor.fill('Learning Playwright iframe handling');
+  await expect(product).toBeVisible();
+});
 
-await expect(editor).toContainText(
-    'Learning Playwright'
-);
+// Locator chaining: first, last, nth
+test('use first last and nth locators', async ({ page }) => {
+  await page.goto('/inventory.html');
 
-//Multiple tab
-const newPagePromise =
-    page.context().waitForEvent('page');
+  const products = page.locator('.inventory_item');
 
-await page.getByText('Open New Tab').click();
+  await expect(products).toHaveCount(6);
+  await expect(products.first()).toBeVisible();
+  await expect(products.last()).toBeVisible();
+  await expect(products.nth(2)).toBeVisible();
+});
 
-const newPage = await newPagePromise;
+// Dynamic table example using a demo page
+test('interact with a dynamic table row', async ({ page }) => {
+  await page.setContent(`
+    <table>
+      <tr><th>Name</th><th>Status</th><th>Action</th></tr>
+      <tr>
+        <td>Priya</td>
+        <td>Active</td>
+        <td><button>Edit</button></td>
+      </tr>
+    </table>
+  `);
 
-await newPage.waitForLoadState();
+  const row = page.getByRole('row').filter({ hasText: 'Priya' });
 
-console.log(
-    await newPage.title()
-);
+  await expect(row).toContainText('Active');
+  await row.getByRole('button', { name: 'Edit' }).click();
+});
 
-//pop-up handling
-const popupPromise =
-    page.waitForEvent('popup');
+// Iframe handling
+test('handle iframe', async ({ page }) => {
+  await page.goto('https://the-internet.herokuapp.com/iframe');
 
-await page
-    .getByRole('button', { name: 'Open' })
-    .click();
+  const frame = page.frameLocator('#mce_0_ifr');
+  const editor = frame.locator('#tinymce');
 
-const popup =
-    await popupPromise;
+  await expect(editor).toBeVisible();
+});
 
-await popup.waitForLoadState();
-await expect(popup).toHaveTitle(/Example/);
+// Interact inside an iframe
+test('edit content inside iframe', async ({ page }) => {
+  await page.goto('https://the-internet.herokuapp.com/iframe');
 
-//cleaner pattern
+  const editor = page.frameLocator('#mce_0_ifr').locator('#tinymce');
 
-const [newPage] = await Promise.all([
+  await expect(editor).toBeVisible();
+  await editor.fill('Learning Playwright iframe handling');
 
+  await expect(editor).toContainText('Learning Playwright');
+});
+
+// Multiple tabs
+test('handle a new tab', async ({ page }) => {
+  await page.goto('https://the-internet.herokuapp.com/windows');
+
+  const [newPage] = await Promise.all([
     page.context().waitForEvent('page'),
+    page.getByText('Click Here').click(),
+  ]);
 
-    page.getByText('Open New Tab').click()
+  await newPage.waitForLoadState();
+  await expect(newPage).toHaveTitle(/New Window/);
+});
 
-]);
+// Popup handling
+test('handle a popup window', async ({ page }) => {
+  await page.goto('https://the-internet.herokuapp.com/windows');
 
-await newPage.waitForLoadState();
+  const [popup] = await Promise.all([
+    page.waitForEvent('popup'),
+    page.getByText('Click Here').click(),
+  ]);
 
-//multiple pages
-const pages = page.context().pages();
+  await popup.waitForLoadState();
+  await expect(popup).toHaveTitle(/New Window/);
+});
 
-console.log(
-    'Number of tabs:',
-    pages.length
-);
+// Count pages in the current browser context
+test('count open tabs', async ({ page }) => {
+  await page.goto('https://the-internet.herokuapp.com/windows');
+
+  await page.getByText('Click Here').click();
+
+  await expect
+    .poll(() => page.context().pages().length)
+    .toBe(2);
+});
